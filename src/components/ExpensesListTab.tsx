@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Tag, ArrowUpDown, Download, Filter } from 'lucide-react';
+import { Search, Plus, Tag, ArrowUpDown, Download, Filter, Sparkles } from 'lucide-react';
 import { CATEGORIES } from '../data/initialData.ts';
-import { Expense } from '../types.ts';
+import { Expense, VirtualReceipt } from '../types.ts';
 import { formatCurrency, formatDateSpanish } from '../utils/formatters.ts';
 
 interface ExpensesListTabProps {
@@ -9,6 +9,7 @@ interface ExpensesListTabProps {
   currencySymbol?: string;
   onSelectExpense: (expense: Expense) => void;
   onAddNewExpense: () => void;
+  onViewVirtualReceipt?: (receipt: VirtualReceipt) => void;
 }
 
 export const ExpensesListTab: React.FC<ExpensesListTabProps> = ({
@@ -16,6 +17,7 @@ export const ExpensesListTab: React.FC<ExpensesListTabProps> = ({
   currencySymbol = '$',
   onSelectExpense,
   onAddNewExpense,
+  onViewVirtualReceipt,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -177,6 +179,20 @@ export const ExpensesListTab: React.FC<ExpensesListTabProps> = ({
                     <span>{formatDateSpanish(expense.date)}</span>
                     <span>·</span>
                     <span className="capitalize">{expense.paymentMethod || 'debito'}</span>
+                    {expense.virtualReceipt && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onViewVirtualReceipt && expense.virtualReceipt) {
+                            onViewVirtualReceipt(expense.virtualReceipt);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full border border-blue-200 transition-colors ml-1"
+                      >
+                        <Sparkles className="w-2.5 h-2.5 text-blue-600" />
+                        <span>Ver Factura</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

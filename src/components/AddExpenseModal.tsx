@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Tag, Trash2, Check, CreditCard, DollarSign } from 'lucide-react';
+import { X, Calendar, Tag, Trash2, Check, CreditCard, DollarSign, Sparkles } from 'lucide-react';
 import { CATEGORIES } from '../data/initialData.ts';
 import { Expense, CategoryType } from '../types.ts';
 import { CategoryIcon } from './CategoryIcon.tsx';
@@ -9,6 +9,7 @@ interface AddExpenseModalProps {
   onClose: () => void;
   onSaveExpense: (expense: Omit<Expense, 'id' | 'createdAt'>, existingId?: string) => void;
   onDeleteExpense?: (id: string) => void;
+  onOpenVirtualReceipt?: (virtualReceipt: any) => void;
   initialExpense?: Expense | null;
   defaultDate?: string;
   currencySymbol?: string;
@@ -19,6 +20,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   onClose,
   onSaveExpense,
   onDeleteExpense,
+  onOpenVirtualReceipt,
   initialExpense,
   defaultDate,
   currencySymbol = '$',
@@ -77,6 +79,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         paymentMethod,
         notes: notes.trim(),
         receiptUrl: initialExpense?.receiptUrl,
+        virtualReceipt: initialExpense?.virtualReceipt,
       },
       initialExpense?.id
     );
@@ -101,6 +104,27 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {initialExpense?.virtualReceipt && (
+          <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
+              <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="truncate">Factura Virtual disponible</p>
+                <p className="text-[10px] text-blue-600 font-normal">
+                  {initialExpense.virtualReceipt.items.length} productos desglosados
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenVirtualReceipt && onOpenVirtualReceipt(initialExpense.virtualReceipt)}
+              className="text-xs font-extrabold text-blue-600 hover:text-blue-800 bg-white px-3 py-1.5 rounded-xl border border-blue-200 shadow-2xs active:scale-95 transition-all shrink-0 ml-2"
+            >
+              Ver Factura →
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="my-3 p-3 bg-red-50 text-red-700 text-xs rounded-xl font-medium border border-red-100">

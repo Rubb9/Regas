@@ -19,6 +19,34 @@ export interface Category {
   budget?: number;
 }
 
+export interface ReceiptItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface VirtualReceipt {
+  id: string;
+  merchantName: string;
+  date: string;
+  time?: string;
+  cashier?: string;
+  address?: string;
+  clientName?: string;
+  ruc?: string;
+  items: ReceiptItem[];
+  subtotal: number;
+  taxRate?: number;
+  taxAmount?: number;
+  totalAmount: number;
+  currency?: string;
+  category?: CategoryType;
+  realPhotoUrl?: string;
+  backgroundTheme?: 'meadow' | 'minimal' | 'paper' | 'gradient';
+}
+
 export interface Expense {
   id: string;
   title: string;
@@ -28,6 +56,7 @@ export interface Expense {
   paymentMethod?: 'efectivo' | 'debito' | 'credito' | 'transferencia';
   notes?: string;
   receiptUrl?: string;
+  virtualReceipt?: VirtualReceipt;
   createdAt: number;
 }
 

@@ -1,6 +1,6 @@
 import React from 'react';
-import { ChevronRight, Plus, Tag } from 'lucide-react';
-import { Expense } from '../types.ts';
+import { ChevronRight, Plus, Tag, Sparkles } from 'lucide-react';
+import { Expense, VirtualReceipt } from '../types.ts';
 import { formatCurrency, formatDateSpanish } from '../utils/formatters.ts';
 
 interface RecentExpensesProps {
@@ -11,6 +11,7 @@ interface RecentExpensesProps {
   onSelectExpense: (expense: Expense) => void;
   onAddNewExpense: () => void;
   onClearDateFilter?: () => void;
+  onViewVirtualReceipt?: (receipt: VirtualReceipt) => void;
 }
 
 export const RecentExpenses: React.FC<RecentExpensesProps> = ({
@@ -21,6 +22,7 @@ export const RecentExpenses: React.FC<RecentExpensesProps> = ({
   onSelectExpense,
   onAddNewExpense,
   onClearDateFilter,
+  onViewVirtualReceipt,
 }) => {
   return (
     <div className="mt-6 mb-24">
@@ -93,9 +95,25 @@ export const RecentExpenses: React.FC<RecentExpensesProps> = ({
                   <h4 className="text-[0.95rem] font-bold text-slate-900 truncate leading-snug">
                     {expense.title}
                   </h4>
-                  <span className="text-xs font-medium text-slate-400">
-                    {formatDateSpanish(expense.date)}
-                  </span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs font-medium text-slate-400">
+                      {formatDateSpanish(expense.date)}
+                    </span>
+                    {expense.virtualReceipt && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onViewVirtualReceipt && expense.virtualReceipt) {
+                            onViewVirtualReceipt(expense.virtualReceipt);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full border border-blue-200 transition-colors"
+                      >
+                        <Sparkles className="w-2.5 h-2.5 text-blue-600" />
+                        <span>Ver Factura</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

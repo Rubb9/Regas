@@ -11,12 +11,13 @@ import { RecentExpenses } from './components/RecentExpenses.tsx';
 import { BottomNavBar } from './components/BottomNavBar.tsx';
 import { AddExpenseModal } from './components/AddExpenseModal.tsx';
 import { ReceiptScannerModal } from './components/ReceiptScannerModal.tsx';
+import { VirtualReceiptCard } from './components/VirtualReceiptCard.tsx';
 import { ExpensesListTab } from './components/ExpensesListTab.tsx';
 import { CategoriesTab } from './components/CategoriesTab.tsx';
 import { SavingsSection } from './components/SavingsSection.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
 import { INITIAL_EXPENSES, INITIAL_SAVINGS_GOALS } from './data/initialData.ts';
-import { Expense, SavingsGoal, ActiveTab } from './types.ts';
+import { Expense, SavingsGoal, ActiveTab, VirtualReceipt } from './types.ts';
 import { formatCurrency } from './utils/formatters.ts';
 
 const STORAGE_EXPENSES_KEY = 'mis_gastos_expenses_v1';
@@ -36,7 +37,19 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_EXPENSES_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge virtualReceipt if missing on exp-1
+          return parsed.map((item: Expense) => {
+            if (item.id === 'exp-1' && !item.virtualReceipt) {
+              const defaultExp1 = INITIAL_EXPENSES.find((e) => e.id === 'exp-1');
+              return { ...item, virtualReceipt: defaultExp1?.virtualReceipt };
+            }
+            return item;
+          });
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -65,6 +78,7 @@ export default function App() {
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeVirtualReceipt, setActiveVirtualReceipt] = useState<VirtualReceipt | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [prefilledExpense, setPrefilledExpense] = useState<Partial<Expense> | null>(null);
 
@@ -190,10 +204,43 @@ export default function App() {
   };
 
   // Receipt Scanner Handler
-  const handleReceiptScanned = (scannedData: Partial<Expense>) => {
-    setPrefilledExpense(scannedData);
-    setEditingExpense(null);
-    setIsAddExpenseOpen(true);
+  const handleReceiptScanned = (receipt: VirtualReceipt) => {
+    setActiveVirtualReceipt(receipt);
+  };
+
+  const handleSaveVirtualReceipt = (receipt: VirtualReceipt) => {
+    // Format date properly: DD/MM/YYYY or YYYY-MM-DD
+    let formattedDate = receipt.date;
+    if (receipt.date.includes('/')) {
+      const parts = receipt.date.split('/');
+      if (parts.length === 3) {
+        formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+
+    const newExpense: Expense = {
+      id: `exp-${Date.now()}`,
+      title: receipt.merchantName,
+      amount: receipt.totalAmount,
+      date: formattedDate,
+      category: receipt.category || 'supermercado',
+      paymentMethod: 'debito',
+      notes: `Factura virtual con ${receipt.items.length} productos`,
+      virtualReceipt: receipt,
+      receiptUrl: receipt.realPhotoUrl,
+      createdAt: Date.now(),
+    };
+
+    setExpenses((prev) => [newExpense, ...prev]);
+
+    const [expY, expM] = formattedDate.split('-').map(Number);
+    if (!isNaN(expY) && !isNaN(expM)) {
+      setCurrentYear(expY);
+      setCurrentMonth(expM - 1);
+      setSelectedDate(formattedDate);
+    }
+
+    setActiveVirtualReceipt(null);
   };
 
   // Savings Handlers
@@ -421,6 +468,7 @@ export default function App() {
                   setIsAddExpenseOpen(true);
                 }}
                 onClearDateFilter={() => setSelectedDate('')}
+                onViewVirtualReceipt={(receipt) => setActiveVirtualReceipt(receipt)}
               />
             </div>
           )}
@@ -439,6 +487,7 @@ export default function App() {
                 setPrefilledExpense(null);
                 setIsAddExpenseOpen(true);
               }}
+              onViewVirtualReceipt={(receipt) => setActiveVirtualReceipt(receipt)}
             />
           )}
 
@@ -482,6 +531,10 @@ export default function App() {
         }}
         onSaveExpense={handleSaveExpense}
         onDeleteExpense={handleDeleteExpense}
+        onOpenVirtualReceipt={(receipt) => {
+          setIsAddExpenseOpen(false);
+          setActiveVirtualReceipt(receipt);
+        }}
         initialExpense={
           editingExpense ||
           (prefilledExpense
@@ -530,6 +583,16 @@ export default function App() {
           }
         }}
       />
+
+      {/* 4. Factura Virtual Modal */}
+      {activeVirtualReceipt && (
+        <VirtualReceiptCard
+          receipt={activeVirtualReceipt}
+          onClose={() => setActiveVirtualReceipt(null)}
+          onSaveToExpenses={handleSaveVirtualReceipt}
+          showSaveButton={!expenses.some((e) => e.virtualReceipt?.id === activeVirtualReceipt.id)}
+        />
+      )}
     </div>
   );
 }
