@@ -1,4 +1,4 @@
-import { Category, Expense, SavingsGoal } from '../types.ts';
+import { Category, Expense, SavingsGoal, Income } from '../types.ts';
 
 export const CATEGORIES: Category[] = [
   { id: 'supermercado', name: 'Supermercado', iconName: 'ShoppingCart', color: '#2563EB', bgColor: '#EFF6FF', budget: 150 },
@@ -53,6 +53,7 @@ export const INITIAL_EXPENSES: Expense[] = [
       category: 'supermercado',
       backgroundTheme: 'meadow',
     },
+    tags: ['Super', 'Víveres'],
     createdAt: 1789390800000,
   },
   {
@@ -63,6 +64,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     category: 'salud',
     paymentMethod: 'efectivo',
     notes: 'Medicamentos básicos',
+    tags: ['Farmacia', 'Salud'],
     createdAt: 1789045200000,
   },
   {
@@ -73,6 +75,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     category: 'transporte',
     paymentMethod: 'debito',
     notes: 'Tanque lleno para el mes',
+    tags: ['Gasolina', 'Auto'],
     createdAt: 1788526800000,
   },
   {
@@ -83,6 +86,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     category: 'alimentacion',
     paymentMethod: 'efectivo',
     notes: 'Pan y café',
+    tags: ['Desayuno'],
     createdAt: 1788008400000,
   },
   {
@@ -93,6 +97,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     category: 'supermercado',
     paymentMethod: 'debito',
     notes: 'Víveres quincenales',
+    tags: ['Quincena', 'Hogar'],
     createdAt: 1786885200000,
   }
 ];
@@ -125,4 +130,109 @@ export const INITIAL_SAVINGS_GOALS: SavingsGoal[] = [
     color: '#9333EA',
     icon: 'Laptop',
   },
+];
+
+export const getCategoryById = (categoryId?: string): Category => {
+  if (!categoryId) {
+    return CATEGORIES[CATEGORIES.length - 1]; // 'otro'
+  }
+  const cleanId = categoryId.toLowerCase().trim();
+  const found = CATEGORIES.find(
+    (c) => c.id.toLowerCase() === cleanId || c.name.toLowerCase() === cleanId
+  );
+  if (found) return found;
+
+  const partial = CATEGORIES.find(
+    (c) =>
+      c.id.toLowerCase().includes(cleanId) ||
+      cleanId.includes(c.id.toLowerCase()) ||
+      c.name.toLowerCase().includes(cleanId) ||
+      cleanId.includes(c.name.toLowerCase())
+  );
+  if (partial) return partial;
+
+  return {
+    id: 'otro',
+    name: categoryId,
+    iconName: 'Tag',
+    color: '#64748B',
+    bgColor: '#F1F5F9',
+    budget: 50,
+  };
+};
+
+export const INITIAL_INCOMES: Income[] = [
+
+  {
+    id: 'inc-1',
+    title: 'Sueldo / Nómina Principal',
+    amount: 450.44,
+    date: '2026-09-01',
+    category: 'Sueldo',
+    createdAt: 1788220800000,
+  },
+  {
+    id: 'inc-2',
+    title: 'Proyecto Freelance',
+    amount: 350.00,
+    date: '2026-08-10',
+    category: 'Freelance',
+    createdAt: 1786406400000,
+  },
+  {
+    id: 'inc-3',
+    title: 'Ingreso Extra / Venta',
+    amount: 120.00,
+    date: '2026-07-20',
+    category: 'Otros',
+    createdAt: 1784678400000,
+  },
+  {
+    id: 'inc-4',
+    title: 'Nómina Junio',
+    amount: 1150.00,
+    date: '2026-06-15',
+    category: 'Sueldo',
+    createdAt: 1781520000000,
+  },
+  {
+    id: 'inc-5',
+    title: 'Nómina Mayo',
+    amount: 980.00,
+    date: '2026-05-15',
+    category: 'Sueldo',
+    createdAt: 1778928000000,
+  },
+  {
+    id: 'inc-6',
+    title: 'Nómina Abril',
+    amount: 920.00,
+    date: '2026-04-15',
+    category: 'Sueldo',
+    createdAt: 1776336000000,
+  },
+  {
+    id: 'inc-7',
+    title: 'Nómina Marzo',
+    amount: 890.00,
+    date: '2026-03-15',
+    category: 'Sueldo',
+    createdAt: 1773744000000,
+  },
+  {
+    id: 'inc-8',
+    title: 'Nómina Febrero',
+    amount: 850.00,
+    date: '2026-02-15',
+    category: 'Sueldo',
+    createdAt: 1771152000000,
+  },
+  {
+    id: 'inc-9',
+    title: 'Nómina Enero',
+    amount: 800.00,
+    date: '2026-01-15',
+    category: 'Sueldo',
+    createdAt: 1768560000000,
+  }
 ];

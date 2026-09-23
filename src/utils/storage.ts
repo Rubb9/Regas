@@ -1,9 +1,11 @@
-import { Expense } from '../types.ts';
+import { Expense, Income } from '../types.ts';
 import { storeReceiptPhoto, getReceiptPhoto } from './imageDb.ts';
 
 export const STORAGE_EXPENSES_KEY = 'mis_gastos_expenses_v1';
+export const STORAGE_INCOMES_KEY = 'mis_gastos_incomes_v1';
 export const STORAGE_SAVINGS_KEY = 'mis_gastos_savings_v1';
 export const STORAGE_CURRENCY_KEY = 'mis_gastos_currency_v1';
+export const STORAGE_THEME_KEY = 'mis_gastos_theme_v1';
 
 /**
  * Sanitizes expenses before storing in localStorage:
@@ -104,4 +106,25 @@ export async function resolvePhotoUrl(url?: string): Promise<string | undefined>
     return photo || undefined;
   }
   return url;
+}
+
+export function safeSaveIncomes(incomes: Income[]): void {
+  try {
+    localStorage.setItem(STORAGE_INCOMES_KEY, JSON.stringify(incomes));
+  } catch (err) {
+    console.error('Error saving incomes to localStorage:', err);
+  }
+}
+
+export function safeLoadIncomes(fallbackIncomes: Income[]): Income[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_INCOMES_KEY);
+    if (!raw) return fallbackIncomes;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallbackIncomes;
+    return parsed;
+  } catch (err) {
+    console.warn('Failed to parse incomes from localStorage, using initial data:', err);
+    return fallbackIncomes;
+  }
 }

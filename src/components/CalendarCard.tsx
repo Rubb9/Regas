@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { MONTH_NAMES_ES } from '../utils/formatters.ts';
+import { useTheme } from '../context/ThemeContext.tsx';
 
 interface CalendarCardProps {
   currentYear: number;
@@ -22,20 +23,17 @@ export const CalendarCard: React.FC<CalendarCardProps> = ({
   onPrevMonth,
   onNextMonth,
 }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const monthName = MONTH_NAMES_ES[currentMonth];
 
   // Calculate calendar days
-  // First day of month
   const firstDayObj = new Date(currentYear, currentMonth, 1);
-  // getDay() returns 0 for Sunday, 1 for Monday, etc.
-  // We want Monday = 0, Sunday = 6
   let startingDayOfWeek = firstDayObj.getDay() - 1;
   if (startingDayOfWeek === -1) startingDayOfWeek = 6; // Sunday becomes 6
 
-  // Total days in month
   const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-  // Parse selected day if it belongs to this month and year
   const [selY, selM, selD] = selectedDate.split('-').map(Number);
   const isSelectedInThisMonth = selY === currentYear && selM - 1 === currentMonth;
 
@@ -57,25 +55,43 @@ export const CalendarCard: React.FC<CalendarCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-[2rem] p-5 sm:p-6 shadow-sm border border-slate-100 transition-all">
+    <div
+      className={`rounded-[28px] p-5 sm:p-6 transition-all duration-300 ${
+        isDark
+          ? 'glass-panel-dark text-white'
+          : 'glass-panel-light text-slate-800'
+      }`}
+    >
       {/* Header Month / Year */}
       <div className="flex items-center justify-between mb-4 px-1">
         <button
           onClick={onPrevMonth}
           aria-label="Mes anterior"
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 active:scale-95 transition-all text-slate-700"
+          className={`w-10 h-10 flex items-center justify-center rounded-full active:scale-95 transition-all ${
+            isDark
+              ? 'hover:bg-white/10 text-white'
+              : 'hover:bg-white/70 text-slate-700'
+          }`}
         >
           <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
         </button>
 
-        <h2 className="text-xl font-bold text-[#1E293B] tracking-tight">
+        <h2
+          className={`text-xl font-black tracking-tight ${
+            isDark ? 'text-white' : 'text-slate-900'
+          }`}
+        >
           {monthName} {currentYear}
         </h2>
 
         <button
           onClick={onNextMonth}
           aria-label="Mes siguiente"
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 active:scale-95 transition-all text-slate-700"
+          className={`w-10 h-10 flex items-center justify-center rounded-full active:scale-95 transition-all ${
+            isDark
+              ? 'hover:bg-white/10 text-white'
+              : 'hover:bg-white/70 text-slate-700'
+          }`}
         >
           <ChevronRight className="w-5 h-5 stroke-[2.5]" />
         </button>
@@ -86,7 +102,9 @@ export const CalendarCard: React.FC<CalendarCardProps> = ({
         {weekDays.map((dayName, idx) => (
           <div
             key={idx}
-            className="text-xs font-semibold text-slate-400 py-1"
+            className={`text-xs font-bold py-1 ${
+              isDark ? 'text-slate-300' : 'text-slate-500'
+            }`}
           >
             {dayName}
           </div>
@@ -103,29 +121,50 @@ export const CalendarCard: React.FC<CalendarCardProps> = ({
           const hasExpense = daysWithExpenses.has(day);
           const isSelected = isSelectedInThisMonth && selD === day;
 
-          // Style definitions matching the screenshot:
-          // - Days with expenses: bold bright blue filled circle (#2563EB) with white text
-          // - Selected day (if not filled): prominent blue outline with blue text
-          // - Selected day (if has expense): blue filled circle with subtle outer focus ring
-          // - Regular day: soft round hover, slate-700 text
+          // Stylings tailored to the reference screenshot
+          let buttonStyle = isDark
+            ? 'text-slate-200 hover:bg-white/10'
+            : 'text-slate-700 hover:bg-white/70';
 
-          let buttonStyle = 'text-slate-700 hover:bg-slate-100';
-
-          if (hasExpense && isSelected) {
-            buttonStyle = 'bg-blue-600 text-white font-bold ring-4 ring-blue-100 shadow-sm';
-          } else if (hasExpense) {
-            buttonStyle = 'bg-blue-600 text-white font-semibold shadow-sm hover:bg-blue-700';
-          } else if (isSelected) {
-            buttonStyle = 'border-2 border-blue-600 text-blue-600 font-bold bg-blue-50/40';
+          if (isDark) {
+            if (isSelected && hasExpense) {
+              buttonStyle =
+                'bg-white text-slate-950 font-black shadow-xl ring-4 ring-blue-500/40 scale-105';
+            } else if (isSelected) {
+              buttonStyle =
+                'bg-white text-slate-950 font-black shadow-xl scale-105';
+            } else if (hasExpense) {
+              buttonStyle =
+                'bg-[#2563EB] text-white font-bold shadow-md hover:bg-blue-600';
+            }
+          } else {
+            // Light mode
+            if (isSelected && hasExpense) {
+              buttonStyle =
+                'bg-slate-950 text-white font-black shadow-lg ring-4 ring-white scale-105';
+            } else if (isSelected) {
+              buttonStyle =
+                'bg-white text-slate-950 font-black shadow-lg ring-2 ring-slate-900/10 scale-105';
+            } else if (hasExpense) {
+              buttonStyle =
+                'bg-slate-900 text-white font-bold shadow-sm hover:bg-slate-800';
+            }
           }
 
           return (
             <button
               key={`day-${day}`}
               onClick={() => handleDayClick(day)}
-              className={`w-10 h-10 sm:w-11 sm:h-11 mx-auto flex items-center justify-center rounded-full text-sm transition-all duration-150 active:scale-95 ${buttonStyle}`}
+              className={`w-10 h-10 sm:w-11 sm:h-11 mx-auto flex flex-col items-center justify-center rounded-full text-sm transition-all duration-150 active:scale-95 ${buttonStyle}`}
             >
-              {day}
+              <span>{day}</span>
+              {hasExpense && !isSelected && (
+                <span
+                  className={`w-1 h-1 rounded-full mt-0.5 ${
+                    isDark ? 'bg-blue-300' : 'bg-slate-400'
+                  }`}
+                />
+              )}
             </button>
           );
         })}

@@ -54,6 +54,7 @@ export interface Expense {
   date: string; // YYYY-MM-DD
   category: CategoryType;
   paymentMethod?: 'efectivo' | 'debito' | 'credito' | 'transferencia';
+  tags?: string[];
   notes?: string;
   receiptUrl?: string;
   virtualReceipt?: VirtualReceipt;
@@ -70,7 +71,19 @@ export interface SavingsGoal {
   icon: string;
 }
 
-export type ActiveTab = 'inicio' | 'gastos' | 'categorias' | 'ahorro' | 'mas';
+export interface Income {
+  id: string;
+  title: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  category: string;
+  notes?: string;
+  createdAt: number;
+}
+
+export type ActiveTab = 'inicio' | 'gastos' | 'estadisticas' | 'categorias' | 'ahorro' | 'mas';
+
+export type ThemeMode = 'light' | 'dark';
 
 export interface CurrencyConfig {
   symbol: string;

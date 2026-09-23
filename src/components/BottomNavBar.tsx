@@ -1,6 +1,7 @@
 import React from 'react';
-import { Home, ReceiptText, Camera, Tag, MoreHorizontal } from 'lucide-react';
+import { Home, ReceiptText, Camera, BarChart2, MoreHorizontal } from 'lucide-react';
 import { ActiveTab } from '../types.ts';
+import { useTheme } from '../context/ThemeContext.tsx';
 
 interface BottomNavBarProps {
   activeTab: ActiveTab;
@@ -13,12 +14,19 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   onTabChange,
   onOpenScanner,
 }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
     <nav
       aria-label="Navegación principal"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.04)]"
+      className={`fixed bottom-0 left-0 right-0 z-40 backdrop-blur-2xl transition-all duration-300 ${
+        isDark
+          ? 'bg-[#070E1C]/80 border-t border-white/15 text-slate-300 shadow-[0_-8px_32px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.1)]'
+          : 'bg-white/75 border-t border-white/80 text-slate-700 shadow-[0_-8px_32px_rgba(15,23,42,0.06),inset_0_1px_1.5px_rgba(255,255,255,0.9)]'
+      }`}
     >
-      <div className="max-w-md mx-auto px-4 h-20 flex items-center justify-between relative pb-safe">
+      <div className="max-w-md mx-auto px-3 h-20 flex items-center justify-between relative pb-safe">
         {/* Tab 1: Inicio */}
         <button
           onClick={() => onTabChange('inicio')}
@@ -26,14 +34,26 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
         >
           <div
             className={`w-6 h-6 flex items-center justify-center transition-colors ${
-              activeTab === 'inicio' ? 'text-blue-600' : 'text-slate-600 group-hover:text-slate-900'
+              activeTab === 'inicio'
+                ? isDark
+                  ? 'text-white'
+                  : 'text-slate-950 font-black'
+                : isDark
+                ? 'text-slate-400 group-hover:text-slate-200'
+                : 'text-slate-500 group-hover:text-slate-900'
             }`}
           >
-            <Home className="w-5 h-5 stroke-[2.2]" />
+            <Home className="w-5 h-5 stroke-[2.4]" />
           </div>
           <span
-            className={`text-[11px] font-semibold mt-1 tracking-tight transition-colors ${
-              activeTab === 'inicio' ? 'text-blue-600' : 'text-slate-600 group-hover:text-slate-900'
+            className={`text-[11px] mt-1 tracking-tight transition-colors ${
+              activeTab === 'inicio'
+                ? isDark
+                  ? 'text-white font-black'
+                  : 'text-slate-950 font-black'
+                : isDark
+                ? 'text-slate-400 font-semibold group-hover:text-slate-200'
+                : 'text-slate-500 font-semibold group-hover:text-slate-900'
             }`}
           >
             Inicio
@@ -47,67 +67,107 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
         >
           <div
             className={`w-6 h-6 flex items-center justify-center transition-colors ${
-              activeTab === 'gastos' ? 'text-blue-600' : 'text-slate-600 group-hover:text-slate-900'
+              activeTab === 'gastos'
+                ? isDark
+                  ? 'text-white'
+                  : 'text-slate-950 font-black'
+                : isDark
+                ? 'text-slate-400 group-hover:text-slate-200'
+                : 'text-slate-500 group-hover:text-slate-900'
             }`}
           >
-            <ReceiptText className="w-5 h-5 stroke-[2.2]" />
+            <ReceiptText className="w-5 h-5 stroke-[2.4]" />
           </div>
           <span
-            className={`text-[11px] font-semibold mt-1 tracking-tight transition-colors ${
-              activeTab === 'gastos' ? 'text-blue-600' : 'text-slate-600 group-hover:text-slate-900'
+            className={`text-[11px] mt-1 tracking-tight transition-colors ${
+              activeTab === 'gastos'
+                ? isDark
+                  ? 'text-white font-black'
+                  : 'text-slate-950 font-black'
+                : isDark
+                ? 'text-slate-400 font-semibold group-hover:text-slate-200'
+                : 'text-slate-500 font-semibold group-hover:text-slate-900'
             }`}
           >
             Gastos
           </span>
         </button>
 
-        {/* Center: Camera Scanner Button (Elevated) */}
+        {/* Center: Camera Scanner Button */}
         <div className="flex-1 flex justify-center -mt-6">
           <button
             onClick={onOpenScanner}
             aria-label="Escanear ticket o recibo con cámara"
-            className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/40 hover:bg-blue-700 active:scale-90 transition-all ring-4 ring-white"
+            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl active:scale-90 transition-all ${
+              isDark
+                ? 'bg-white text-slate-950 shadow-white/20 hover:bg-slate-100 ring-4 ring-[#070E1C]'
+                : 'bg-slate-950 text-white shadow-slate-950/30 hover:bg-slate-900 ring-4 ring-white'
+            }`}
           >
-            <Camera className="w-7 h-7 stroke-[2.2]" />
+            <Camera className="w-6 h-6 stroke-[2.4]" />
           </button>
         </div>
 
-        {/* Tab 4: Categorías */}
+        {/* Tab 3: Estadísticas */}
         <button
-          onClick={() => onTabChange('categorias')}
+          onClick={() => onTabChange('estadisticas')}
           className="flex-1 flex flex-col items-center justify-center py-1 transition-all group active:scale-95"
         >
           <div
             className={`w-6 h-6 flex items-center justify-center transition-colors ${
-              activeTab === 'categorias' ? 'text-blue-600' : 'text-slate-600 group-hover:text-slate-900'
+              activeTab === 'estadisticas'
+                ? isDark
+                  ? 'text-white'
+                  : 'text-slate-950 font-black'
+                : isDark
+                ? 'text-slate-400 group-hover:text-slate-200'
+                : 'text-slate-500 group-hover:text-slate-900'
             }`}
           >
-            <Tag className="w-5 h-5 stroke-[2.2] -rotate-45" />
+            <BarChart2 className="w-5 h-5 stroke-[2.4]" />
           </div>
           <span
-            className={`text-[11px] font-semibold mt-1 tracking-tight transition-colors ${
-              activeTab === 'categorias' ? 'text-blue-600' : 'text-slate-600 group-hover:text-slate-900'
+            className={`text-[11px] mt-1 tracking-tight transition-colors ${
+              activeTab === 'estadisticas'
+                ? isDark
+                  ? 'text-white font-black'
+                  : 'text-slate-950 font-black'
+                : isDark
+                ? 'text-slate-400 font-semibold group-hover:text-slate-200'
+                : 'text-slate-500 font-semibold group-hover:text-slate-900'
             }`}
           >
-            Categorías
+            Estadísticas
           </span>
         </button>
 
-        {/* Tab 5: Más / Ahorro */}
+        {/* Tab 4: Más */}
         <button
           onClick={() => onTabChange('mas')}
           className="flex-1 flex flex-col items-center justify-center py-1 transition-all group active:scale-95"
         >
           <div
             className={`w-6 h-6 flex items-center justify-center transition-colors ${
-              activeTab === 'mas' ? 'text-blue-600' : 'text-slate-600 group-hover:text-slate-900'
+              activeTab === 'mas'
+                ? isDark
+                  ? 'text-white'
+                  : 'text-slate-950 font-black'
+                : isDark
+                ? 'text-slate-400 group-hover:text-slate-200'
+                : 'text-slate-500 group-hover:text-slate-900'
             }`}
           >
-            <MoreHorizontal className="w-5 h-5 stroke-[2.2]" />
+            <MoreHorizontal className="w-5 h-5 stroke-[2.4]" />
           </div>
           <span
-            className={`text-[11px] font-semibold mt-1 tracking-tight transition-colors ${
-              activeTab === 'mas' ? 'text-blue-600' : 'text-slate-600 group-hover:text-slate-900'
+            className={`text-[11px] mt-1 tracking-tight transition-colors ${
+              activeTab === 'mas'
+                ? isDark
+                  ? 'text-white font-black'
+                  : 'text-slate-950 font-black'
+                : isDark
+                ? 'text-slate-400 font-semibold group-hover:text-slate-200'
+                : 'text-slate-500 font-semibold group-hover:text-slate-900'
             }`}
           >
             Más
