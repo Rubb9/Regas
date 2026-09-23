@@ -19,10 +19,13 @@ import { SettingsModal } from './components/SettingsModal.tsx';
 import { INITIAL_EXPENSES, INITIAL_SAVINGS_GOALS } from './data/initialData.ts';
 import { Expense, SavingsGoal, ActiveTab, VirtualReceipt } from './types.ts';
 import { formatCurrency } from './utils/formatters.ts';
-
-const STORAGE_EXPENSES_KEY = 'mis_gastos_expenses_v1';
-const STORAGE_SAVINGS_KEY = 'mis_gastos_savings_v1';
-const STORAGE_CURRENCY_KEY = 'mis_gastos_currency_v1';
+import {
+  safeSaveExpenses,
+  safeLoadExpenses,
+  STORAGE_SAVINGS_KEY,
+  STORAGE_CURRENCY_KEY,
+} from './utils/storage.ts';
+import { storeReceiptPhoto, deleteReceiptPhoto } from './utils/imageDb.ts';
 
 export default function App() {
   // Navigation
@@ -35,25 +38,14 @@ export default function App() {
 
   // Data State
   const [expenses, setExpenses] = useState<Expense[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_EXPENSES_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge virtualReceipt if missing on exp-1
-          return parsed.map((item: Expense) => {
-            if (item.id === 'exp-1' && !item.virtualReceipt) {
-              const defaultExp1 = INITIAL_EXPENSES.find((e) => e.id === 'exp-1');
-              return { ...item, virtualReceipt: defaultExp1?.virtualReceipt };
-            }
-            return item;
-          });
-        }
+    const loaded = safeLoadExpenses(INITIAL_EXPENSES);
+    return loaded.map((item: Expense) => {
+      if (item.id === 'exp-1' && !item.virtualReceipt) {
+        const defaultExp1 = INITIAL_EXPENSES.find((e) => e.id === 'exp-1');
+        return { ...item, virtualReceipt: defaultExp1?.virtualReceipt };
       }
-    } catch (e) {
-      console.error(e);
-    }
-    return INITIAL_EXPENSES;
+      return item;
+    });
   });
 
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
@@ -85,13 +77,9 @@ export default function App() {
   // Desktop view preference: phone mockup vs wide mode
   const [isPhoneFrame, setIsPhoneFrame] = useState(true);
 
-  // Save changes to localStorage
+  // Save changes to localStorage safely without exceeding quota
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_EXPENSES_KEY, JSON.stringify(expenses));
-    } catch (e) {
-      console.error(e);
-    }
+    safeSaveExpenses(expenses);
   }, [expenses]);
 
   useEffect(() => {
@@ -199,6 +187,7 @@ export default function App() {
   };
 
   const handleDeleteExpense = (id: string) => {
+    deleteReceiptPhoto(`photo_${id}`).catch(console.warn);
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     setEditingExpense(null);
   };
@@ -218,16 +207,28 @@ export default function App() {
       }
     }
 
+    const expenseId = `exp-${Date.now()}`;
+    let photoRef = receipt.realPhotoUrl;
+    if (receipt.realPhotoUrl && receipt.realPhotoUrl.startsWith('data:image')) {
+      const photoKey = `photo_${expenseId}`;
+      storeReceiptPhoto(photoKey, receipt.realPhotoUrl).catch(console.warn);
+      photoRef = `idb:${photoKey}`;
+    }
+
     const newExpense: Expense = {
-      id: `exp-${Date.now()}`,
+      id: expenseId,
       title: receipt.merchantName,
       amount: receipt.totalAmount,
       date: formattedDate,
       category: receipt.category || 'supermercado',
       paymentMethod: 'debito',
       notes: `Factura virtual con ${receipt.items.length} productos`,
-      virtualReceipt: receipt,
-      receiptUrl: receipt.realPhotoUrl,
+      virtualReceipt: {
+        ...receipt,
+        id: receipt.id || expenseId,
+        realPhotoUrl: photoRef,
+      },
+      receiptUrl: photoRef,
       createdAt: Date.now(),
     };
 
@@ -241,6 +242,34 @@ export default function App() {
     }
 
     setActiveVirtualReceipt(null);
+  };
+
+  const handleUpdateVirtualReceipt = (updatedReceipt: VirtualReceipt) => {
+    setActiveVirtualReceipt(updatedReceipt);
+
+    // If an existing expense contains this receipt, update its title, amount, and receipt
+    setExpenses((prev) =>
+      prev.map((exp) => {
+        if (exp.virtualReceipt?.id === updatedReceipt.id || exp.id === updatedReceipt.id) {
+          let formattedDate = updatedReceipt.date;
+          if (updatedReceipt.date.includes('/')) {
+            const parts = updatedReceipt.date.split('/');
+            if (parts.length === 3) {
+              formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+          }
+          return {
+            ...exp,
+            title: updatedReceipt.merchantName,
+            amount: updatedReceipt.totalAmount,
+            date: formattedDate,
+            notes: `Factura virtual con ${updatedReceipt.items.length} productos`,
+            virtualReceipt: updatedReceipt,
+          };
+        }
+        return exp;
+      })
+    );
   };
 
   // Savings Handlers
@@ -302,7 +331,7 @@ export default function App() {
         }
         setIsSettingsOpen(false);
       } catch (err) {
-        alert('Formato de archivo inválido.');
+        console.warn('Formato de archivo inválido:', err);
       }
     };
     reader.readAsText(file);
@@ -577,10 +606,8 @@ export default function App() {
         onExportData={handleExportData}
         onImportData={handleImportData}
         onClearAll={() => {
-          if (window.confirm('¿Deseas borrar todos los gastos registrados?')) {
-            setExpenses([]);
-            setIsSettingsOpen(false);
-          }
+          setExpenses([]);
+          setIsSettingsOpen(false);
         }}
       />
 
@@ -590,6 +617,7 @@ export default function App() {
           receipt={activeVirtualReceipt}
           onClose={() => setActiveVirtualReceipt(null)}
           onSaveToExpenses={handleSaveVirtualReceipt}
+          onUpdateReceipt={handleUpdateVirtualReceipt}
           showSaveButton={!expenses.some((e) => e.virtualReceipt?.id === activeVirtualReceipt.id)}
         />
       )}

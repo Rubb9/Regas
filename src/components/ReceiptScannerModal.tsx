@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Camera, X, Upload, Sparkles, Check, RefreshCw, Edit3, Image as ImageIcon } from 'lucide-react';
 import { VirtualReceipt, CategoryType } from '../types.ts';
+import { compressImage } from '../utils/imageUtils.ts';
+import { storeReceiptPhoto } from '../utils/imageDb.ts';
 
 interface ReceiptScannerModalProps {
   isOpen: boolean;
@@ -89,7 +91,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
     onClose();
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth || 640;
@@ -97,22 +99,35 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const rawDataUrl = canvas.toDataURL('image/jpeg', 0.85);
         stopCamera();
-        processReceiptImage(dataUrl);
+        try {
+          const compressed = await compressImage(rawDataUrl, 1024, 1024, 0.72);
+          processReceiptImage(compressed);
+        } catch {
+          processReceiptImage(rawDataUrl);
+        }
       }
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
-        processReceiptImage(dataUrl);
-      };
-      reader.readAsDataURL(file);
+      setIsScanning(true);
+      setScanStepText('Optimizando imagen para lectura...');
+      try {
+        const compressed = await compressImage(file, 1024, 1024, 0.72);
+        processReceiptImage(compressed);
+      } catch (err) {
+        console.warn('Compression failed, reading raw file:', err);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          processReceiptImage(dataUrl);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
