@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Trash2, Check, Sparkles, Tag, Plus } from 'lucide-react';
+import {
+  X,
+  Calendar,
+  Trash2,
+  Check,
+  Sparkles,
+  Tag,
+  Plus,
+  ShoppingBag,
+  Receipt,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { CATEGORIES, getCategoryById } from '../data/initialData.ts';
-import { Expense, CategoryType } from '../types.ts';
+import { Expense, CategoryType, ReceiptItem, VirtualReceipt } from '../types.ts';
 import { CategoryIcon } from './CategoryIcon.tsx';
 import { useTheme } from '../context/ThemeContext.tsx';
+import { formatCurrency } from '../utils/formatters.ts';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -29,6 +43,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
+  // Basic expense fields
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<CategoryType>('supermercado');
@@ -38,6 +53,20 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   const [customTagInput, setCustomTagInput] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+
+  // Products / Items breakdown
+  const [items, setItems] = useState<ReceiptItem[]>([]);
+  const [productName, setProductName] = useState('');
+  const [productQty, setProductQty] = useState('1');
+  const [productPrice, setProductPrice] = useState('');
+
+  // Digital Receipt generation options
+  const [generateDigitalReceipt, setGenerateDigitalReceipt] = useState(true);
+  const [showReceiptOptions, setShowReceiptOptions] = useState(false);
+  const [cashier, setCashier] = useState('Caja 01');
+  const [address, setAddress] = useState('');
+  const [ruc, setRuc] = useState('');
+  const [receiptTheme, setReceiptTheme] = useState<'meadow' | 'minimal' | 'paper' | 'gradient'>('meadow');
 
   const QUICK_TAG_SUGGESTIONS = ['Super', 'Alimentos', 'Trabajo', 'Hogar', 'Personal', 'Salidas', 'Urgente', 'Ahorro'];
 
@@ -50,6 +79,18 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       setPaymentMethod(initialExpense.paymentMethod || 'debito');
       setTags(initialExpense.tags || []);
       setNotes(initialExpense.notes || '');
+
+      if (initialExpense.virtualReceipt) {
+        setGenerateDigitalReceipt(true);
+        setItems(initialExpense.virtualReceipt.items || []);
+        setCashier(initialExpense.virtualReceipt.cashier || 'Caja 01');
+        setAddress(initialExpense.virtualReceipt.address || '');
+        setRuc(initialExpense.virtualReceipt.ruc || '');
+        setReceiptTheme((initialExpense.virtualReceipt.backgroundTheme as any) || 'meadow');
+      } else {
+        setGenerateDigitalReceipt(true);
+        setItems([]);
+      }
     } else {
       setTitle('');
       setAmount('');
@@ -58,8 +99,17 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       setPaymentMethod('debito');
       setTags([]);
       setNotes('');
+      setItems([]);
+      setGenerateDigitalReceipt(true);
+      setCashier('Caja 01');
+      setAddress('');
+      setRuc('');
+      setReceiptTheme('meadow');
     }
     setCustomTagInput('');
+    setProductName('');
+    setProductQty('1');
+    setProductPrice('');
     setError('');
   }, [initialExpense, defaultDate, isOpen]);
 
@@ -81,10 +131,82 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  const handleAddProduct = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!productName.trim()) {
+      return;
+    }
+    const qty = Math.max(1, parseFloat(productQty) || 1);
+    const unitPriceNum = parseFloat(productPrice) || 0;
+    const totalPriceNum = parseFloat((qty * unitPriceNum).toFixed(2));
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    const newItem: ReceiptItem = {
+      id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: productName.trim(),
+      quantity: qty,
+      unitPrice: unitPriceNum,
+      totalPrice: totalPriceNum,
+    };
+
+    const newItems = [...items, newItem];
+    setItems(newItems);
+    setProductName('');
+    setProductQty('1');
+    setProductPrice('');
+
+    // If unit price was provided, auto-calculate total amount
+    const sum = newItems.reduce((acc, curr) => acc + curr.totalPrice, 0);
+    if (sum > 0) {
+      setAmount(sum.toFixed(2));
+    }
+  };
+
+  const handleRemoveProduct = (id: string) => {
+    const updated = items.filter((it) => it.id !== id);
+    setItems(updated);
+    const sum = updated.reduce((acc, curr) => acc + curr.totalPrice, 0);
+    if (sum > 0) {
+      setAmount(sum.toFixed(2));
+    }
+  };
+
+  const buildVirtualReceipt = (parsedAmount: number): VirtualReceipt => {
+    const subtotal = items.length > 0
+      ? items.reduce((acc, curr) => acc + curr.totalPrice, 0)
+      : parsedAmount;
+
+    const receiptItems: ReceiptItem[] = items.length > 0
+      ? items
+      : [
+          {
+            id: `item-${Date.now()}-1`,
+            name: title.trim() || 'Compra general',
+            quantity: 1,
+            unitPrice: parsedAmount,
+            totalPrice: parsedAmount,
+          },
+        ];
+
+    return {
+      id: initialExpense?.virtualReceipt?.id || `rec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      merchantName: title.trim() || 'Comercio',
+      date: date || new Date().toISOString().split('T')[0],
+      time: initialExpense?.virtualReceipt?.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      cashier: cashier.trim() || 'Caja 01',
+      address: address.trim() || undefined,
+      ruc: ruc.trim() || undefined,
+      category,
+      items: receiptItems,
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      taxRate: 0,
+      taxAmount: 0,
+      totalAmount: parsedAmount,
+      currency: currencySymbol,
+      backgroundTheme: receiptTheme,
+    };
+  };
+
+  const handleSave = (openReceiptAfter: boolean = false) => {
     const parsedAmount = parseFloat(amount);
     if (!title.trim()) {
       setError('Por favor ingresa un comercio o descripción');
@@ -94,6 +216,10 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       setError('Por favor ingresa un monto válido mayor a 0');
       return;
     }
+
+    const receiptToAttach = generateDigitalReceipt || items.length > 0
+      ? buildVirtualReceipt(parsedAmount)
+      : initialExpense?.virtualReceipt;
 
     onSaveExpense(
       {
@@ -105,16 +231,32 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         tags: tags.length > 0 ? tags : undefined,
         notes: notes.trim() || undefined,
         receiptUrl: initialExpense?.receiptUrl,
-        virtualReceipt: initialExpense?.virtualReceipt,
+        virtualReceipt: receiptToAttach,
       },
       initialExpense?.id
     );
 
     onClose();
+
+    if (openReceiptAfter && receiptToAttach && onOpenVirtualReceipt) {
+      onOpenVirtualReceipt(receiptToAttach);
+    }
   };
+
+  const handlePreviewReceipt = () => {
+    const parsedAmount = parseFloat(amount) || items.reduce((acc, curr) => acc + curr.totalPrice, 0) || 1;
+    const previewReceipt = buildVirtualReceipt(parsedAmount);
+    if (onOpenVirtualReceipt) {
+      onClose();
+      onOpenVirtualReceipt(previewReceipt);
+    }
+  };
+
+  if (!isOpen) return null;
 
   const isEditing = Boolean(initialExpense?.id);
   const selectedCatObj = getCategoryById(category);
+  const totalProductsSum = items.reduce((acc, curr) => acc + curr.totalPrice, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
@@ -131,9 +273,23 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             isDark ? 'border-white/10' : 'border-slate-100'
           }`}
         >
-          <h3 className="text-xl font-black">
-            {isEditing ? 'Editar Gasto' : 'Registrar Nuevo Gasto'}
-          </h3>
+          <div className="flex items-center gap-2.5">
+            <div
+              className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                isDark ? 'bg-white/10 text-white' : 'bg-blue-50 text-blue-600'
+              }`}
+            >
+              <Receipt className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black">
+                {isEditing ? 'Editar Gasto' : 'Registrar Nuevo Gasto'}
+              </h3>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                {generateDigitalReceipt ? 'Con desglose y factura digital' : 'Registro manual estándar'}
+              </p>
+            </div>
+          </div>
           <button
             onClick={onClose}
             className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-all ${
@@ -155,7 +311,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             <div className="flex items-center gap-2 text-xs font-bold">
               <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
               <div className="min-w-0">
-                <p className="truncate">Factura Virtual disponible</p>
+                <p className="truncate">Factura Virtual vinculada</p>
                 <p className="text-[10px] opacity-80 font-normal">
                   {initialExpense.virtualReceipt.items.length} productos desglosados
                 </p>
@@ -177,10 +333,16 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="py-4 space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSave(false);
+          }}
+          className="py-4 space-y-4"
+        >
           {/* Big Amount Input */}
           <div
-            className={`p-4 rounded-2xl text-center border ${
+            className={`p-4 rounded-2xl text-center border relative ${
               isDark
                 ? 'bg-white/5 border-white/10'
                 : 'bg-blue-50/70 border-blue-100'
@@ -216,16 +378,36 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 }`}
               />
             </div>
+
+            {items.length > 0 && totalProductsSum > 0 && (
+              <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold">
+                <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>
+                  Suma de productos:
+                </span>
+                <span className="font-bold text-emerald-500 tabular-nums">
+                  {formatCurrency(totalProductsSum, currencySymbol)}
+                </span>
+                {parseFloat(amount) !== totalProductsSum && (
+                  <button
+                    type="button"
+                    onClick={() => setAmount(totalProductsSum.toFixed(2))}
+                    className="ml-1 text-[10px] font-black text-blue-500 hover:underline"
+                  >
+                    (Sincronizar)
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Title / Merchant */}
           <div>
             <label className={`block text-xs font-bold mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              Comercio / Descripción
+              Comercio o Lugar de Compra
             </label>
             <input
               type="text"
-              placeholder="Ej. Supermercado, Gasolina, Almuerzo..."
+              placeholder="Ej. Supermaxi, Gran Aki, Cafetería, Gasolinera..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className={`w-full px-4 py-3 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
@@ -256,6 +438,270 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             </div>
           </div>
 
+          {/* NEW SECTION: PRODUCTS / ITEMS BREAKDOWN */}
+          <div
+            className={`p-4 rounded-2xl border transition-all ${
+              isDark
+                ? 'bg-white/[0.04] border-white/15'
+                : 'bg-slate-50/80 border-slate-200'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className={`w-4 h-4 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                <label className={`text-xs font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Productos comprados ({items.length})
+                </label>
+              </div>
+              <span className={`text-[11px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Desglose para factura
+              </span>
+            </div>
+            <p className={`text-[11px] mb-3 leading-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Agrega los artículos que compraste. Se incluirán de forma estética en la factura digital.
+            </p>
+
+            {/* Quick Add Product Row */}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Nombre del producto (ej: Leche 1L, Manzanas...)"
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddProduct();
+                    }
+                  }}
+                  className={`flex-1 px-3 py-2 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isDark
+                      ? 'bg-white/10 border border-white/20 text-white placeholder:text-slate-500'
+                      : 'bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400'
+                  }`}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="w-24">
+                  <div className="relative">
+                    <span className="text-[10px] text-slate-400 absolute left-2 top-2 font-bold">Cant:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={productQty}
+                      onChange={(e) => setProductQty(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddProduct();
+                        }
+                      }}
+                      className={`w-full pl-9 pr-2 py-2 rounded-xl text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDark
+                          ? 'bg-white/10 border border-white/20 text-white'
+                          : 'bg-white border border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex-1">
+                  <div className="relative">
+                    <span className="text-[11px] text-slate-400 absolute left-2.5 top-2 font-bold">{currencySymbol}</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Precio unitario"
+                      value={productPrice}
+                      onChange={(e) => setProductPrice(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddProduct();
+                        }
+                      }}
+                      className={`w-full pl-6 pr-2 py-2 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDark
+                          ? 'bg-white/10 border border-white/20 text-white placeholder:text-slate-500'
+                          : 'bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleAddProduct()}
+                  className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Añadir</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Added products list */}
+            {items.length > 0 && (
+              <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto pr-1 no-scrollbar">
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-colors ${
+                      isDark
+                        ? 'bg-white/5 border-white/10 text-white'
+                        : 'bg-white border-slate-200 text-slate-900'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1 mr-2">
+                      <p className="font-bold truncate">{item.name}</p>
+                      <p className={`text-[10.5px] tabular-nums ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {item.quantity} × {formatCurrency(item.unitPrice, currencySymbol)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="font-black tabular-nums text-sm">
+                        {formatCurrency(item.totalPrice, currencySymbol)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProduct(item.id)}
+                        className="p-1 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
+                        title="Eliminar producto"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* NEW SECTION: DIGITAL RECEIPT CREATION & PREVIEW */}
+          <div
+            className={`p-4 rounded-2xl border transition-all ${
+              isDark
+                ? 'bg-gradient-to-r from-blue-950/40 to-indigo-950/40 border-blue-500/30'
+                : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-4 h-4 stroke-[2.2]" />
+                </div>
+                <div>
+                  <h4 className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Crear Factura Digital Estética
+                  </h4>
+                  <p className={`text-[11px] ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+                    Diseño con flores, sello y desglose
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggle switch */}
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={generateDigitalReceipt}
+                  onChange={(e) => setGenerateDigitalReceipt(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-400/40 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {generateDigitalReceipt && (
+              <div className="mt-3 pt-3 border-t border-blue-500/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowReceiptOptions(!showReceiptOptions)}
+                    className="flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-600"
+                  >
+                    <span>Opciones de factura (RUC, cajero, sucursal)</span>
+                    {showReceiptOptions ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePreviewReceipt}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/80 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 text-xs font-bold text-blue-600 dark:text-blue-300 transition-colors shadow-2xs"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Previsualizar</span>
+                  </button>
+                </div>
+
+                {showReceiptOptions && (
+                  <div className="space-y-2 pt-1 animate-in fade-in duration-150">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <label className={`block text-[10.5px] font-bold mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                          Cajero / Vendedor
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ej. Caja 03, Sandra P."
+                          value={cashier}
+                          onChange={(e) => setCashier(e.target.value)}
+                          className={`w-full px-3 py-1.5 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                            isDark
+                              ? 'bg-white/10 border border-white/15 text-white placeholder:text-slate-500'
+                              : 'bg-white border border-slate-300 text-slate-800'
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-[10.5px] font-bold mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                          RUC / Cédula (opcional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ej. 1790016919001"
+                          value={ruc}
+                          onChange={(e) => setRuc(e.target.value)}
+                          className={`w-full px-3 py-1.5 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                            isDark
+                              ? 'bg-white/10 border border-white/15 text-white placeholder:text-slate-500'
+                              : 'bg-white border border-slate-300 text-slate-800'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block text-[10.5px] font-bold mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                        Dirección o Sucursal (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Av. Panamericana Norte y Olmedo"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        className={`w-full px-3 py-1.5 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                          isDark
+                            ? 'bg-white/10 border border-white/15 text-white placeholder:text-slate-500'
+                            : 'bg-white border border-slate-300 text-slate-800'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Category Selector */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -276,7 +722,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1 no-scrollbar">
+            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1 no-scrollbar">
               {CATEGORIES.map((cat) => {
                 const isSelected = category === cat.id;
                 return (
@@ -461,28 +907,56 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="pt-2 flex items-center gap-3">
-            {isEditing && onDeleteExpense && initialExpense && (
-              <button
-                type="button"
-                onClick={() => {
-                  onDeleteExpense(initialExpense.id);
-                  onClose();
-                }}
-                className="w-12 h-12 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center shrink-0 active:scale-95 transition-all"
-                title="Eliminar gasto"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-            )}
+          <div className="pt-2 space-y-2">
+            <div className="flex items-center gap-2">
+              {isEditing && onDeleteExpense && initialExpense && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteExpense(initialExpense.id);
+                    onClose();
+                  }}
+                  className="w-12 h-12 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center shrink-0 active:scale-95 transition-all"
+                  title="Eliminar gasto"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )}
 
-            <button
-              type="submit"
-              className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 active:scale-98 transition-all"
-            >
-              <Check className="w-5 h-5 stroke-[2.5]" />
-              <span>{isEditing ? 'Guardar Cambios' : 'Registrar Gasto'}</span>
-            </button>
+              {generateDigitalReceipt ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSave(true)}
+                    className="flex-1 h-12 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-black text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 active:scale-98 transition-all"
+                  >
+                    <Sparkles className="w-4 h-4 stroke-[2.5]" />
+                    <span>Guardar y Ver Factura</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSave(false)}
+                    className={`h-12 px-4 rounded-xl text-xs font-bold transition-all border active:scale-95 ${
+                      isDark
+                        ? 'bg-white/10 hover:bg-white/20 border-white/20 text-white'
+                        : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    Solo Guardar
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSave(false)}
+                  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 active:scale-98 transition-all"
+                >
+                  <Check className="w-5 h-5 stroke-[2.5]" />
+                  <span>{isEditing ? 'Guardar Cambios' : 'Registrar Gasto'}</span>
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </div>
