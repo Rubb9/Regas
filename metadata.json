@@ -1,0 +1,6 @@
+{
+  "name": "Mis Gastos & Ahorro",
+  "description": "App móvil intuitiva para el control de gastos diarios, escaneo de tickets con cámara y gestión de metas de ahorro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
