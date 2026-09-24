@@ -1,0 +1,13 @@
+{
+  "background_color": "#ffffff",
+  "description": "App móvil intuitiva para el control de gastos diarios, escaneo de tickets con cámara y gestión de metas de ahorro.",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "kouwik",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "kouwik",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "id": "/"
+}
